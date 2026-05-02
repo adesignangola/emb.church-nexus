@@ -17,8 +17,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useAppointments, useProfiles, useVisitors, useWorship, useSchedules } from '../stores/dataStore';
+import { useAppointments, useVisitors, useWorship, useSchedules } from '../stores/dataStore';
 import { useAuth } from '../stores/authStore';
+import { supabase } from '../lib/supabase';
 
 const TYPE_LABELS: Record<string, string> = {
   COUNSELING: 'Aconselhamento',
@@ -31,11 +32,12 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function SecretaryRoom() {
   const { appointments, loading: apptLoading, error: apptError, fetchAppointments, addAppointment } = useAppointments();
-  const { profiles, fetchProfiles } = useProfiles();
   const { visitors, loading: visLoading, fetchVisitors, addVisitor } = useVisitors();
   const { addService } = useWorship();
   const { addSchedule } = useSchedules();
   const { profile: activeSecretary } = useAuth();
+  const [pastors, setPastors] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [pastorsLoading, setPastorsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPastor, setSelectedPastor] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -70,9 +72,23 @@ export default function SecretaryRoom() {
   });
   const scheduleModalRef = useRef<HTMLDivElement>(null);
 
+  const fetchPastors = async () => {
+    setPastorsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_schedulable_pastors');
+      if (error) throw error;
+      setPastors(data || []);
+    } catch (error) {
+      console.error('[secretary] Failed to fetch pastors:', error);
+      setPastors([]);
+    } finally {
+      setPastorsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAppointments();
-    fetchProfiles();
+    fetchPastors();
     fetchVisitors();
   }, []);
 
@@ -82,7 +98,6 @@ export default function SecretaryRoom() {
     [appointments, today]
   );
 
-  const pastors = useMemo(() => profiles.filter(p => p.roles?.includes('PASTOR')), [profiles]);
   const pendingVisitors = useMemo(() => visitors.filter(v => v.follow_up_status === 'PENDING').length, [visitors]);
   const becameMembers = useMemo(() => visitors.filter(v => v.follow_up_status === 'BECAME_MEMBER').length, [visitors]);
 
@@ -414,7 +429,17 @@ export default function SecretaryRoom() {
                     <label className="text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest px-1">Selecionar Pastor <span className="text-rose-500">*</span></label>
                     {formErrors.pastor && <p className="text-xs text-rose-400 font-medium -mt-2">{formErrors.pastor}</p>}
                     <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
-                       {pastors.map((pastor) => (
+                       {pastorsLoading ? (
+                         <div className="p-4 rounded-xl border border-nexus-border bg-nexus-bg/50 text-center">
+                            <Loader2 size={16} className="animate-spin mx-auto text-nexus-yellow mb-2" />
+                            <p className="text-xs text-nexus-text-muted">A carregar pastores...</p>
+                         </div>
+                       ) : pastors.length === 0 ? (
+                         <div className="p-4 rounded-xl border border-dashed border-nexus-border bg-nexus-bg/50 text-center">
+                            <AlertCircle size={16} className="mx-auto text-amber-400 mb-2" />
+                            <p className="text-xs text-nexus-text-muted">Nenhum pastor cadastrado ou disponível para agendamento.</p>
+                         </div>
+                       ) : pastors.map((pastor) => (
                          <button key={pastor.id} onClick={() => setSelectedPastor(pastor.id)} className={`w-full p-3 rounded-xl border transition-all text-left ${selectedPastor === pastor.id ? 'bg-nexus-yellow/10 border-nexus-yellow' : 'bg-nexus-bg/50 border-nexus-border hover:border-nexus-yellow/50'}`}>
                             <div className="flex items-center justify-between">
                                <div>
