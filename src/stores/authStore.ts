@@ -41,7 +41,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   needsPasswordChange: false,
 
   login: async (email: string, password: string): Promise<boolean> => {
-    set({ isLoading: true });
+    set({ isLoading: true, needsPasswordChange: false });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -70,7 +70,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
     try {
       await supabase.auth.signOut();
     } finally {
-      set({ user: null, profile: null, isAuthenticated: false });
+      set({ user: null, profile: null, isAuthenticated: false, needsPasswordChange: false });
     }
   },
 
@@ -102,6 +102,8 @@ export const useAuth = create<AuthState>()((set, get) => ({
           .from('profiles')
           .update({ password_changed: false })
           .eq('id', data.user.id);
+
+        await get().fetchProfile();
       }
 
       return true;
@@ -125,13 +127,15 @@ export const useAuth = create<AuthState>()((set, get) => ({
           .single();
 
         if (data) {
+          const passwordChanged = data.password_changed ?? true;
+
           set({ profile: {
             ...data,
             roles: data.roles || ['MEMBER'],
-            password_changed: data.password_changed ?? false,
+            password_changed: passwordChanged,
           } as UserProfile });
 
-          const needsChange = data.password_changed === false;
+          const needsChange = passwordChanged === false;
           set({ needsPasswordChange: needsChange });
 
           return;
@@ -171,13 +175,24 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
       const { profile } = get();
       if (profile) {
-        await supabase
+        const { data: updatedProfile, error: profileError } = await supabase
           .from('profiles')
           .update({ password_changed: true })
-          .eq('id', profile.id);
+          .eq('id', profile.id)
+          .select('*')
+          .single();
+
+        if (profileError) {
+          console.error('[auth] updatePassword profile sync error:', profileError);
+          return false;
+        }
 
         set({ 
-          profile: { ...profile, password_changed: true },
+          profile: {
+            ...updatedProfile,
+            roles: updatedProfile.roles || ['MEMBER'],
+            password_changed: updatedProfile.password_changed ?? true,
+          } as UserProfile,
           needsPasswordChange: false 
         });
       }
@@ -226,9 +241,12 @@ export const useAuth = create<AuthState>()((set, get) => ({
   initialize: async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      set({ user: session.user, isAuthenticated: true });
+      set({ user: session.user, isAuthenticated: true, needsPasswordChange: false });
       await get().fetchProfile();
+      return;
     }
+
+    set({ user: null, profile: null, isAuthenticated: false, needsPasswordChange: false });
   },
 }));
 
@@ -241,6 +259,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess
     useAuth.setState({
       user: session.user,
       isAuthenticated: true,
+      needsPasswordChange: false,
     });
     useAuth.getState().fetchProfile();
   } else {
@@ -248,6 +267,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess
       user: null,
       profile: null,
       isAuthenticated: false,
+      needsPasswordChange: false,
     });
   }
 });
