@@ -82,7 +82,7 @@ export default function SecretaryRoom() {
     [appointments, today]
   );
 
-  const pastors = useMemo(() => profiles.filter(p => p.role === 'PASTOR'), [profiles]);
+  const pastors = useMemo(() => profiles.filter(p => p.roles?.includes('PASTOR')), [profiles]);
   const pendingVisitors = useMemo(() => visitors.filter(v => v.follow_up_status === 'PENDING').length, [visitors]);
   const becameMembers = useMemo(() => visitors.filter(v => v.follow_up_status === 'BECAME_MEMBER').length, [visitors]);
 
@@ -253,7 +253,7 @@ export default function SecretaryRoom() {
               <p className="text-xs font-medium text-nexus-text-muted">
                 Ambiente de Trabalho: <span className="text-nexus-text font-bold">{activeSecretary?.full_name || 'N/A'}</span> 
                 <span className="mx-2 text-nexus-border">|</span> 
-                Papel: <span className="text-nexus-yellow font-bold text-[10px] uppercase">{activeSecretary?.role || 'N/A'}</span>
+                Papel: <span className="text-nexus-yellow font-bold text-[10px] uppercase">{activeSecretary?.roles?.join(' & ') || 'N/A'}</span>
               </p>
             </div>
          </div>

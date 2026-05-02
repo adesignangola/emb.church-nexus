@@ -2,7 +2,7 @@ import {
   UserPlus, 
   ShieldCheck, 
   Key, 
-  Mail, 
+  Mail,
   Trash2, 
   Edit3, 
   MoreVertical,
@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from '../lib/toastStore';
 import { useAuth, UserRole } from '../stores/authStore';
-import { useProfiles } from '../stores/dataStore';
+import { useProfiles, Profile } from '../stores/dataStore';
 
 export default function UsersRoom() {
   const { profiles, loading, error, fetchProfiles, updateProfile, deleteProfile } = useProfiles();
@@ -25,8 +25,8 @@ export default function UsersRoom() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [formData, setFormData] = useState({ name: '', email: '', role: 'SECRETARY' as UserRole });
-  const [editRole, setEditRole] = useState<UserRole>('SECRETARY');
+  const [formData, setFormData] = useState({ name: '', email: '', roles: ['SECRETARY'] as UserRole[] });
+  const [editRoles, setEditRoles] = useState<UserRole[]>(['SECRETARY']);
   const modalRef = useRef<HTMLDivElement>(null);
   const { show } = useToast();
   const { register } = useAuth();
@@ -47,11 +47,11 @@ export default function UsersRoom() {
   const handleInvite = async () => {
     if (!validateForm()) return;
     const password = Math.random().toString(36).slice(-8) + 'A1!';
-    const success = await register(formData.email, password, formData.name, formData.role);
+    const success = await register(formData.email, password, formData.name, formData.roles);
     if (success) {
       show(`Convite enviado para ${formData.name}`, 'success');
       setIsAddModalOpen(false);
-      setFormData({ name: '', email: '', role: 'SECRETARY' });
+      setFormData({ name: '', email: '', roles: ['SECRETARY'] });
       setFormErrors({});
       fetchProfiles();
     } else {
@@ -61,8 +61,8 @@ export default function UsersRoom() {
 
   const handleEditRole = async () => {
     if (!selectedUser) return;
-    await updateProfile(selectedUser.id, { role: editRole });
-    show(`Permissões de ${selectedUser.full_name} atualizadas para ${editRole}`, 'success');
+    await updateProfile(selectedUser.id, { roles: editRoles });
+    show(`Permissões de ${selectedUser.full_name} atualizadas`, 'success');
     setIsEditModalOpen(false);
     setSelectedUser(null);
   };
@@ -81,7 +81,7 @@ export default function UsersRoom() {
       if (e.key === 'Escape') {
         setIsAddModalOpen(false);
         setFormErrors({});
-        setFormData({ name: '', email: '', role: 'SECRETARY' });
+        setFormData({ name: '', email: '', roles: ['SECRETARY'] });
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -104,6 +104,15 @@ export default function UsersRoom() {
     }
   };
 
+  const toggleRole = (role: UserRole, current: UserRole[], setter: (r: UserRole[]) => void) => {
+    if (current.includes(role)) {
+      if (current.length === 1) return;
+      setter(current.filter(r => r !== role));
+    } else {
+      setter([...current, role]);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -115,7 +124,7 @@ export default function UsersRoom() {
           onClick={() => {
             setIsAddModalOpen(true);
             setFormErrors({});
-            setFormData({ name: '', email: '', role: 'SECRETARY' });
+            setFormData({ name: '', email: '', roles: ['SECRETARY'] });
           }}
           className="flex items-center justify-center gap-2 px-6 py-2.5 gold-gradient text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-nexus-orange/10 hover:brightness-110 active:scale-95 transition-all"
         >
@@ -181,7 +190,7 @@ export default function UsersRoom() {
                  <thead>
                    <tr className="bg-nexus-card/50 border-b border-nexus-border text-[10px] font-black text-nexus-text-muted uppercase tracking-widest">
                      <th className="px-6 py-4">Sessão / Operador</th>
-                     <th className="px-6 py-4">Papel Atribuído</th>
+                     <th className="px-6 py-4">Papéis Atribuídos</th>
                      <th className="px-6 py-4">Email</th>
                      <th className="px-6 py-4 text-right">Controlo</th>
                    </tr>
@@ -201,16 +210,20 @@ export default function UsersRoom() {
                          </div>
                        </td>
                        <td className="px-6 py-4">
-                          <span className={`text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-widest ${getRoleBadge(user.role)}`}>
-                             {user.role}
-                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(user.roles || ['MEMBER']).map(r => (
+                              <span key={r} className={`text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase tracking-widest ${getRoleBadge(r)}`}>
+                                {r}
+                              </span>
+                            ))}
+                          </div>
                        </td>
                        <td className="px-6 py-4 text-xs font-mono text-nexus-text-muted">
                          {user.email}
                        </td>
                        <td className="px-6 py-4 text-right whitespace-nowrap">
                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => { setSelectedUser(user); setEditRole(user.role); setIsEditModalOpen(true); }} className="p-2 text-nexus-border hover:text-nexus-yellow transition-colors" title="Editar Permissões">
+                              <button onClick={() => { setSelectedUser(user); setEditRoles(user.roles || ['MEMBER']); setIsEditModalOpen(true); }} className="p-2 text-nexus-border hover:text-nexus-yellow transition-colors" title="Editar Permissões">
                                  <Key size={16} />
                               </button>
                               <button onClick={() => { setSelectedUser(user); setIsDeleteModalOpen(true); }} className="p-2 text-nexus-border hover:text-rose-500 transition-colors" title="Eliminar Utilizador">
@@ -290,27 +303,36 @@ export default function UsersRoom() {
                     {formErrors.email && <p className="text-xs text-rose-400 font-medium">{formErrors.email}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="user-role" className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">
-                      Papel de Acesso <span className="text-rose-500">*</span>
+                    <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">
+                      Papéis de Acesso <span className="text-rose-500">*</span>
                     </label>
-                    <select 
-                      id="user-role"
-                      value={formData.role}
-                      onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserRole }))}
-                      className="w-full bg-nexus-card border border-nexus-border rounded-xl p-3.5 text-xs text-nexus-text focus:outline-none focus:ring-1 focus:ring-nexus-yellow appearance-none"
-                    >
-                       <option value="SECRETARY">Secretária / Gestão</option>
-                       <option value="TREASURER">Tesoureiro / Financeiro</option>
-                       <option value="PASTOR">Pastor (Área Restrita)</option>
-                       <option value="DEPT_LEADER">Líder de Departamento</option>
-                       <option value="ADMIN">Administrador de TI</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['SECRETARY', 'TREASURER', 'PASTOR', 'DEPT_LEADER', 'ADMIN'] as UserRole[]).map(r => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => toggleRole(r, formData.roles, (roles) => setFormData(prev => ({ ...prev, roles })))}
+                          className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs font-bold uppercase transition-all ${
+                            formData.roles.includes(r)
+                              ? 'bg-nexus-yellow/20 border-nexus-yellow text-nexus-yellow'
+                              : 'bg-nexus-card/50 border-nexus-border text-nexus-text-muted hover:border-nexus-text-muted'
+                          }`}
+                        >
+                          {formData.roles.includes(r) && <Check size={12} />}
+                          {r === 'SECRETARY' && 'Secretária'}
+                          {r === 'TREASURER' && 'Tesoureiro'}
+                          {r === 'PASTOR' && 'Pastor'}
+                          {r === 'DEPT_LEADER' && 'Líder Dept.'}
+                          {r === 'ADMIN' && 'Admin TI'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                </div>
 
                <div className="pt-4 flex gap-3">
                   <button 
-                    onClick={() => { setIsAddModalOpen(false); setFormErrors({}); setFormData({ name: '', email: '', role: 'SECRETARY' }); }} 
+                    onClick={() => { setIsAddModalOpen(false); setFormErrors({}); setFormData({ name: '', email: '', roles: ['SECRETARY'] }); }} 
                     className="flex-1 py-3.5 bg-nexus-card hover:bg-nexus-bg text-nexus-text-muted rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-nexus-border"
                   >
                     Recuar
@@ -337,14 +359,30 @@ export default function UsersRoom() {
                 <div className="space-y-4">
                    <p className="text-sm text-nexus-text-muted font-bold">{selectedUser.full_name}</p>
                    <div className="space-y-1.5">
-                     <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">Novo Papel</label>
-                     <select value={editRole} onChange={(e) => setEditRole(e.target.value as UserRole)} className="w-full bg-nexus-card border border-nexus-border rounded-xl p-3.5 text-xs text-nexus-text focus:outline-none focus:ring-1 focus:ring-nexus-yellow">
-                        <option value="SECRETARY">Secretária / Gestão</option>
-                        <option value="TREASURER">Tesoureiro / Financeiro</option>
-                        <option value="PASTOR">Pastor (Área Restrita)</option>
-                        <option value="DEPT_LEADER">Líder de Departamento</option>
-                        <option value="ADMIN">Administrador de TI</option>
-                     </select>
+                     <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">Papéis (selecione múltiplos)</label>
+                     <div className="space-y-2">
+                       {(['SECRETARY', 'TREASURER', 'PASTOR', 'DEPT_LEADER', 'ADMIN'] as UserRole[]).map(r => (
+                         <button
+                           key={r}
+                           type="button"
+                           onClick={() => toggleRole(r, editRoles, setEditRoles)}
+                           className={`w-full flex items-center gap-3 p-3 rounded-lg border text-xs font-bold uppercase transition-all ${
+                             editRoles.includes(r)
+                               ? 'bg-nexus-yellow/20 border-nexus-yellow text-nexus-yellow'
+                               : 'bg-nexus-card/50 border-nexus-border text-nexus-text-muted hover:border-nexus-text-muted'
+                           }`}
+                         >
+                           {editRoles.includes(r) && <Check size={14} />}
+                           <span className="ml-1">
+                             {r === 'SECRETARY' && 'Secretária / Gestão'}
+                             {r === 'TREASURER' && 'Tesoureiro / Financeiro'}
+                             {r === 'PASTOR' && 'Pastor (Área Restrita)'}
+                             {r === 'DEPT_LEADER' && 'Líder de Departamento'}
+                             {r === 'ADMIN' && 'Administrador de TI'}
+                           </span>
+                         </button>
+                       ))}
+                     </div>
                    </div>
                 </div>
                 <div className="pt-4 flex gap-3">

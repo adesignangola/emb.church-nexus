@@ -55,12 +55,11 @@ function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toasts, hide, hideAll } = useToast();
-  const { isAuthenticated, logout, profile } = useAuth();
+  const { isAuthenticated, logout, profile, needsPasswordChange } = useAuth();
   const needsProfileCompletion = isAuthenticated && profile && (
     profile.full_name === 'New User' || 
     !profile.full_name || 
-    profile.full_name.trim() === '' ||
-    !profile.phone
+    profile.full_name.trim() === ''
   );
   const [activePath, setActivePath] = useState(() => {
     const path = location.pathname;
@@ -73,6 +72,12 @@ function AppLayout() {
       setActivePath(location.pathname);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (isAuthenticated && needsPasswordChange && location.pathname !== '/profile') {
+      navigate('/profile', { replace: true });
+    }
+  }, [isAuthenticated, needsPasswordChange, location.pathname]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

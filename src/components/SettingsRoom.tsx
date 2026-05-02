@@ -23,12 +23,16 @@ import {
   Check,
   Users,
   Target,
-  Clock,
   Link2,
   Image,
   Banknote,
   Languages,
-  FileText
+  FileText,
+  X,
+  Edit3,
+  ChevronRight,
+  Plus,
+  Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -45,6 +49,12 @@ export default function SettingsRoom() {
   const [isSaved, setIsSaved] = useState(false);
   const [logSecurity, setLogSecurity] = useState(true);
   const [twoFactor, setTwoFactor] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<typeof profiles[0] | null>(null);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [themeForm, setThemeForm] = useState({ title: '', verse: '', year: '', type: 'annual' as 'annual' | 'monthly' });
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateContent, setTemplateContent] = useState('');
 
   const [form, setForm] = useState({
     name: '', legal_name: '', denomination: '', nif: '', registration_number: '',
@@ -439,7 +449,7 @@ export default function SettingsRoom() {
 
                    <div className="space-y-3">
                      {profiles.map(u => (
-                       <div key={u.id} className="flex items-center justify-between p-4 bg-nexus-card/30 border border-nexus-border rounded-2xl hover:border-nexus-yellow/30 transition-all group">
+                       <div key={u.id} onClick={() => setSelectedUser(u)} className="flex items-center justify-between p-4 bg-nexus-card/30 border border-nexus-border rounded-2xl hover:border-nexus-yellow/30 transition-all group cursor-pointer">
                          <div className="flex items-center gap-3">
                            <div className="w-10 h-10 rounded-xl bg-nexus-card border border-nexus-border flex items-center justify-center text-nexus-yellow shadow-md group-hover:scale-110 transition-transform">
                              <ShieldCheck size={20} />
@@ -450,8 +460,8 @@ export default function SettingsRoom() {
                            </div>
                          </div>
                          <div className="flex items-center gap-4">
-                            <span className="text-[9px] font-black text-nexus-yellow px-2.5 py-1 rounded-lg bg-nexus-yellow/5 border border-nexus-yellow/20 tracking-widest">{u.role}</span>
-                            <button className="p-2 text-nexus-border hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
+                             <span className="text-[9px] font-black text-nexus-yellow px-2.5 py-1 rounded-lg bg-nexus-yellow/5 border border-nexus-yellow/20 tracking-widest">{u.roles?.join(' & ')}</span>
+                            <button className="p-2 text-nexus-text-muted hover:text-nexus-yellow transition-colors"><ChevronRight size={16} /></button>
                          </div>
                        </div>
                      ))}
@@ -461,23 +471,43 @@ export default function SettingsRoom() {
 
               {activeTab === 'themes' && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-black text-nexus-text uppercase tracking-tight">Gestão de Temas</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-black text-nexus-text uppercase tracking-tight">Gestão de Temas</h3>
+                    <button 
+                      onClick={() => { setThemeForm({ title: '', verse: '', year: new Date().getFullYear().toString(), type: 'annual' }); setIsThemeModalOpen(true); }}
+                      className="flex items-center gap-2 px-4 py-2 gold-gradient text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-nexus-orange/10 hover:brightness-110 transition-all"
+                    >
+                      <Plus size={14} /> Novo Tema
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-4">
                         <h4 className="text-[10px] font-black text-nexus-yellow uppercase tracking-[0.2em]">Tema do Ano Ativo</h4>
                         <div className="glass-card p-6 border-nexus-yellow/30 bg-nexus-yellow/[0.02]">
                            <p className="text-sm font-black text-nexus-text uppercase tracking-tight">2024: O Ano da Celebração</p>
                            <p className="text-[10px] font-bold text-nexus-text-muted mt-2 uppercase tracking-widest">Romanos 11:36</p>
-                           <button className="mt-6 text-[10px] font-black text-nexus-yellow uppercase tracking-widest border border-nexus-yellow/20 px-4 py-2 rounded-lg hover:bg-nexus-yellow hover:text-white transition-all">Editar Tema Anual</button>
+                           <button 
+                             onClick={() => { setThemeForm({ title: 'O Ano da Celebração', verse: 'Romanos 11:36', year: '2024', type: 'annual' }); setIsThemeModalOpen(true); }}
+                             className="mt-6 text-[10px] font-black text-nexus-yellow uppercase tracking-widest border border-nexus-yellow/20 px-4 py-2 rounded-lg hover:bg-nexus-yellow hover:text-white transition-all flex items-center gap-2"
+                           >
+                             <Pencil size={12} /> Editar Tema Anual
+                           </button>
                         </div>
                      </div>
                      <div className="space-y-4">
                         <h4 className="text-[10px] font-black text-nexus-text-muted uppercase tracking-[0.2em]">Fluxo de Temas Mensais</h4>
                         <div className="space-y-2">
-                           {['Abril: Ressurreição', 'Maio: Gratidão', 'Junho: Família'].map(t => (
-                             <div key={t} className="p-3 bg-nexus-card/50 rounded-xl border border-nexus-border flex items-center justify-between group hover:border-nexus-yellow/30 transition-all cursor-pointer">
-                               <span className="text-xs font-bold text-nexus-text-muted group-hover:text-nexus-text transition-colors">{t}</span>
-                               <ExternalLink size={14} className="text-nexus-border group-hover:text-nexus-yellow transition-colors" />
+                           {[
+                             { month: 'Abril', title: 'Ressurreição', verse: '1 Coríntios 15:20' },
+                             { month: 'Maio', title: 'Gratidão', verse: 'Salmo 107:1' },
+                             { month: 'Junho', title: 'Família', verse: 'Josué 24:15' },
+                           ].map(t => (
+                             <div key={t.month} onClick={() => { setThemeForm({ title: t.title, verse: t.verse, year: t.month, type: 'monthly' }); setIsThemeModalOpen(true); }} className="p-3 bg-nexus-card/50 rounded-xl border border-nexus-border flex items-center justify-between group hover:border-nexus-yellow/30 transition-all cursor-pointer">
+                               <div>
+                                 <span className="text-xs font-bold text-nexus-text-muted group-hover:text-nexus-text transition-colors">{t.month}: {t.title}</span>
+                                 <p className="text-[9px] text-nexus-text-muted mt-0.5">{t.verse}</p>
+                               </div>
+                               <button className="p-1 text-nexus-border group-hover:text-nexus-yellow transition-colors"><Edit3 size={14} /></button>
                              </div>
                            ))}
                         </div>
@@ -491,16 +521,18 @@ export default function SettingsRoom() {
                     <h3 className="text-lg font-black text-nexus-text uppercase tracking-tight">Templates Omnichannel</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                        {[
-                         'Saudação de Aniversário',
-                         'Lembrete de Culto',
-                         'Confirmação de Inscrição',
-                         'Nova Escala de Louvor',
-                         'Boas-vindas Visitante',
-                         'Recibo de Dízimo'
+                         { name: 'Saudação de Aniversário', content: 'Olá {nome}! A igreja deseja-lhe um feliz aniversário. Que Deus continue a abençoá-lo(a).' },
+                         { name: 'Lembrete de Culto', content: 'Lembrete: Culto de {tipo} às {hora}. Esperamos por si! {nome_igreja}' },
+                         { name: 'Confirmação de Inscrição', content: 'A sua inscrição para {evento} foi confirmada. Data: {data}. Local: {local}.' },
+                         { name: 'Nova Escala de Louvor', content: 'Escala de louvor para {data}: {nome} - {cargo}. Obrigado pela dedicação!' },
+                         { name: 'Boas-vindas Visitante', content: 'Bem-vindo(a) à {nome_igreja}! Ficámos muito felizes com a sua visita. Esperamos vê-lo(a) novamente!' },
+                         { name: 'Recibo de Dízimo', content: 'Recibo de Dízimo - {nome}: {valor}kz. Data: {data}. Deus abençoe a sua generosidade.' }
                        ].map(temp => (
-                         <div key={temp} className="p-4 bg-nexus-card/20 border border-nexus-border rounded-2xl flex items-center justify-between group hover:border-nexus-orange/30 transition-all cursor-pointer">
-                            <span className="text-xs font-black text-nexus-text-muted group-hover:text-nexus-text uppercase tracking-tight transition-colors">{temp}</span>
-                            <button className="text-[9px] font-black text-nexus-orange opacity-0 group-hover:opacity-100 transition-all tracking-widest border border-nexus-orange/20 px-2.5 py-1 rounded-lg">CONFIGURAR</button>
+                         <div key={temp.name} onClick={() => { setSelectedTemplate(temp.name); setTemplateContent(temp.content); setIsTemplateModalOpen(true); }} className="p-4 bg-nexus-card/20 border border-nexus-border rounded-2xl flex items-center justify-between group hover:border-nexus-orange/30 transition-all cursor-pointer">
+                            <span className="text-xs font-black text-nexus-text-muted group-hover:text-nexus-text uppercase tracking-tight transition-colors">{temp.name}</span>
+                            <button className="text-[9px] font-black text-nexus-orange opacity-0 group-hover:opacity-100 transition-all tracking-widest border border-nexus-orange/20 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                              <Pencil size={10} /> CONFIGURAR
+                            </button>
                          </div>
                        ))}
                     </div>
@@ -592,6 +624,126 @@ export default function SettingsRoom() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* User Details Modal */}
+      <AnimatePresence>
+        {selectedUser && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedUser(null)} className="absolute inset-0 bg-nexus-bg/90 backdrop-blur-xl" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative w-full max-w-md glass-card p-8 border-nexus-border">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-12 h-12 rounded-xl bg-nexus-card border border-nexus-border flex items-center justify-center text-nexus-yellow shadow-md text-lg font-black">
+                      {selectedUser.full_name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-nexus-text">{selectedUser.full_name}</h3>
+                       <span className="text-[9px] font-black text-nexus-yellow px-2.5 py-0.5 rounded bg-nexus-yellow/5 border border-nexus-yellow/20 tracking-widest">{selectedUser.roles?.join(' & ')}</span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedUser(null)} className="text-nexus-text-muted hover:text-nexus-text"><X size={20} /></button>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="p-3 bg-nexus-card/30 rounded-lg border border-nexus-border/30 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-nexus-text-muted uppercase">Email</span>
+                  <span className="text-sm font-bold text-nexus-text">{selectedUser.email}</span>
+                </div>
+                <div className="p-3 bg-nexus-card/30 rounded-lg border border-nexus-border/30 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-nexus-text-muted uppercase">Telefone</span>
+                  <span className="text-sm font-bold text-nexus-text">{selectedUser.phone || 'N/A'}</span>
+                </div>
+                <div className="p-3 bg-nexus-card/30 rounded-lg border border-nexus-border/30 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-nexus-text-muted uppercase">Criado em</span>
+                  <span className="text-sm font-bold text-nexus-text">{new Date(selectedUser.created_at).toLocaleDateString('pt-PT')}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pt-6 border-t border-nexus-border/50">
+                <button onClick={() => {}} className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2">
+                  <Trash2 size={14} /> Remover
+                </button>
+                <button onClick={() => {}} className="flex-1 py-2.5 gold-gradient text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 shadow-lg shadow-nexus-orange/10 transition-all flex items-center justify-center gap-2">
+                  <Edit3 size={14} /> Editar Papel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Theme Modal */}
+      <AnimatePresence>
+        {isThemeModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsThemeModalOpen(false)} className="absolute inset-0 bg-nexus-bg/90 backdrop-blur-xl" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative w-full max-w-md glass-card p-8 border-nexus-border">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-nexus-text uppercase">
+                  {themeForm.type === 'annual' ? 'Tema Anual' : 'Tema Mensal'}
+                </h3>
+                <button onClick={() => setIsThemeModalOpen(false)} className="text-nexus-text-muted hover:text-nexus-text"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <button onClick={() => setThemeForm(p => ({ ...p, type: 'annual' }))} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${themeForm.type === 'annual' ? 'bg-nexus-yellow text-white' : 'bg-nexus-card text-nexus-text-muted border border-nexus-border'}`}>Anual</button>
+                  <button onClick={() => setThemeForm(p => ({ ...p, type: 'monthly' }))} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${themeForm.type === 'monthly' ? 'bg-nexus-yellow text-white' : 'bg-nexus-card text-nexus-text-muted border border-nexus-border'}`}>Mensal</button>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">{themeForm.type === 'annual' ? 'Ano' : 'Mês/Período'}</label>
+                  <input type="text" value={themeForm.year} onChange={(e) => setThemeForm(p => ({ ...p, year: e.target.value }))} className="w-full bg-nexus-card/50 border border-nexus-border rounded-xl p-3 text-sm text-nexus-text focus:ring-1 focus:ring-nexus-yellow" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">Título do Tema</label>
+                  <input type="text" value={themeForm.title} onChange={(e) => setThemeForm(p => ({ ...p, title: e.target.value }))} placeholder="Ex: O Ano da Celebração" className="w-full bg-nexus-card/50 border border-nexus-border rounded-xl p-3 text-sm text-nexus-text focus:ring-1 focus:ring-nexus-yellow" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1">Versículo Base</label>
+                  <input type="text" value={themeForm.verse} onChange={(e) => setThemeForm(p => ({ ...p, verse: e.target.value }))} placeholder="Ex: Romanos 11:36" className="w-full bg-nexus-card/50 border border-nexus-border rounded-xl p-3 text-sm text-nexus-text focus:ring-1 focus:ring-nexus-yellow" />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setIsThemeModalOpen(false)} className="flex-1 py-3 bg-nexus-card hover:bg-nexus-border text-nexus-text rounded-xl text-sm font-black uppercase tracking-widest transition-all">Cancelar</button>
+                <button onClick={() => { show('Tema guardado com sucesso!', 'success'); setIsThemeModalOpen(false); }} className="flex-1 py-3 gold-gradient text-white rounded-xl text-sm font-black uppercase tracking-widest hover:brightness-110 shadow-xl shadow-nexus-orange/20 transition-all">Guardar</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Template Configuration Modal */}
+      <AnimatePresence>
+        {isTemplateModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsTemplateModalOpen(false)} className="absolute inset-0 bg-nexus-bg/90 backdrop-blur-xl" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="relative w-full max-w-lg glass-card p-8 border-nexus-border">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-nexus-text uppercase">Template: {selectedTemplate}</h3>
+                <button onClick={() => setIsTemplateModalOpen(false)} className="text-nexus-text-muted hover:text-nexus-text"><X size={20} /></button>
+              </div>
+
+              <div className="mb-4 p-3 bg-nexus-yellow/5 border border-nexus-yellow/20 rounded-xl">
+                <p className="text-[10px] font-bold text-nexus-yellow uppercase tracking-widest mb-1">Variáveis disponíveis</p>
+                <p className="text-[10px] text-nexus-text-muted">{`{nome}, {nome_igreja}, {data}, {hora}, {tipo}, {evento}, {local}, {valor}, {cargo}`}</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-nexus-text-muted uppercase tracking-widest px-1 mb-2 block">Conteúdo da Mensagem</label>
+                <textarea value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} rows={6} className="w-full bg-nexus-card/50 border border-nexus-border rounded-xl p-3 text-sm text-nexus-text focus:ring-1 focus:ring-nexus-yellow resize-none font-mono" />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setIsTemplateModalOpen(false)} className="flex-1 py-3 bg-nexus-card hover:bg-nexus-border text-nexus-text rounded-xl text-sm font-black uppercase tracking-widest transition-all">Cancelar</button>
+                <button onClick={() => { show('Template guardado!', 'success'); setIsTemplateModalOpen(false); }} className="flex-1 py-3 gold-gradient text-white rounded-xl text-sm font-black uppercase tracking-widest hover:brightness-110 shadow-xl shadow-nexus-orange/20 transition-all flex items-center justify-center gap-2">
+                  <Save size={14} /> Guardar Template
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,0 +1,16 @@
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+const { data, error } = await supabase
+  .from('profiles')
+  .update({ roles: ['ADMIN', 'PASTOR'] })
+  .eq('email', 'rubenbitumba@embchurh.com');
+
+if (error) {
+  console.error('Erro:', error.message);
+} else {
+  console.log('Atualizado com sucesso!');
+}

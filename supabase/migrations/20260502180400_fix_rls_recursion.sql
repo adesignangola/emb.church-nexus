@@ -1,0 +1,2 @@
+-- This migration has been superseded by 20260502190000_clean_slate_policies.sql
+-- No action needed - policies are recreated from scratch in the new migration

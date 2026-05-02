@@ -12,18 +12,31 @@ import {
   Loader2,
   Tag,
   FileText,
-  Trash2
+  Trash2,
+  Edit3,
+  Lock,
+  Globe
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../stores/authStore';
-import { useAppointments, useMembers, useSermons } from '../stores/dataStore';
+import { useAppointments, useMembers, useSermons, usePastoralNotes } from '../stores/dataStore';
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  PASTOR: 'Pastor',
+  SECRETARY: 'Secretária',
+  TREASURER: 'Tesoureiro',
+  DEPT_LEADER: 'Líder de Dept.',
+  MEMBER: 'Membro',
+};
 
 export default function PastorRoom() {
   const { profile } = useAuth();
   const { appointments, loading: apptLoading, fetchAppointments } = useAppointments();
   const { members, fetchMembers } = useMembers();
   const { sermons, loading: sermonLoading, fetchSermons, addSermon, deleteSermon } = useSermons();
+  const { notes, loading: notesLoading, fetchNotes, addNote, deleteNote } = usePastoralNotes();
   const [activeTab, setActiveTab] = useState<'sermons' | 'notes' | 'appointments'>('appointments');
   const [isSermonModalOpen, setIsSermonModalOpen] = useState(false);
   const [isSermonSuccess, setIsSermonSuccess] = useState(false);
@@ -37,15 +50,23 @@ export default function PastorRoom() {
     notes: '',
     tags: ''
   });
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [isNoteSuccess, setIsNoteSuccess] = useState(false);
+  const [isNoteLoading, setIsNoteLoading] = useState(false);
+  const [noteFormData, setNoteFormData] = useState({
+    title: '', content: '', category: '', related_member_name: '', is_private: true
+  });
 
   useEffect(() => {
     fetchAppointments();
     fetchMembers();
     fetchSermons();
+    fetchNotes();
   }, []);
 
+  const isPastor = profile?.roles.includes('PASTOR');
   const pastorAppointments = useMemo(() =>
-    appointments.filter(a => a.pastor_id === profile?.id).sort((a, b) => {
+    appointments.filter(a => isPastor && a.pastor_id === profile?.id).sort((a, b) => {
       const dateA = new Date(a.date + 'T' + a.time);
       const dateB = new Date(b.date + 'T' + b.time);
       return dateA.getTime() - dateB.getTime();
@@ -104,6 +125,38 @@ export default function PastorRoom() {
     }
   };
 
+  const handleCreateNote = async () => {
+    if (!noteFormData.title.trim()) return;
+    setIsNoteLoading(true);
+    try {
+      const success = await addNote({
+        title: noteFormData.title,
+        content: noteFormData.content,
+        category: noteFormData.category || null,
+        related_member_id: null,
+        related_member_name: noteFormData.related_member_name || null,
+        is_private: noteFormData.is_private,
+        pastor_id: profile?.id || null,
+      });
+      if (success) {
+        setIsNoteSuccess(true);
+        setTimeout(() => {
+          setIsNoteSuccess(false);
+          setIsNoteModalOpen(false);
+          setNoteFormData({ title: '', content: '', category: '', related_member_name: '', is_private: true });
+        }, 2000);
+      }
+    } finally {
+      setIsNoteLoading(false);
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja eliminar esta nota?')) {
+      await deleteNote(id);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -118,7 +171,7 @@ export default function PastorRoom() {
           </div>
           <div>
             <h3 className="text-lg font-black text-nexus-text">{profile?.full_name || 'Pastor'}</h3>
-            <p className="text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest">{profile?.role || 'PASTOR'}</p>
+            <p className="text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest">{profile?.roles.map(r => ROLE_LABELS[r] || r).join(' & ')}</p>
           </div>
           <div className="ml-auto text-right">
             <p className="text-2xl font-black text-nexus-text">{activeMembersCount}</p>
@@ -240,10 +293,64 @@ export default function PastorRoom() {
       )}
 
       {activeTab === 'notes' && (
-        <div className="glass-card p-12 text-center">
-          <BookOpen size={48} className="mx-auto text-nexus-text-muted mb-4 opacity-50" />
-          <h3 className="text-lg font-bold text-nexus-text mb-2">Notas Pastorais</h3>
-          <p className="text-sm text-nexus-text-muted">As notas pessoais serão guardadas aqui.</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-nexus-text">{notes.length} Notas</h3>
+            <button
+              onClick={() => setIsNoteModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 gold-gradient text-white rounded-lg text-xs font-bold shadow-lg shadow-nexus-orange/10 hover:brightness-110 active:scale-95 transition-all"
+            >
+              <Plus size={16} /> Nova Nota
+            </button>
+          </div>
+
+          {notesLoading ? (
+            <div className="glass-card p-8 text-center">
+              <div className="animate-spin w-6 h-6 border-2 border-nexus-yellow border-t-transparent rounded-full mx-auto mb-2" />
+              <p className="text-xs text-nexus-text-muted">A carregar notas...</p>
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="glass-card p-12 text-center">
+              <BookOpen size={48} className="mx-auto text-nexus-text-muted mb-4 opacity-50" />
+              <h3 className="text-lg font-bold text-nexus-text mb-2">Sem notas</h3>
+              <p className="text-sm text-nexus-text-muted">Crie a sua primeira nota pastoral.</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {notes.map(note => (
+                <div key={note.id} className="glass-card p-4 hover:bg-nexus-card/40 transition-all group">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-bold text-nexus-text group-hover:text-nexus-orange transition-colors">{note.title}</h4>
+                        {note.is_private ? (
+                          <Lock size={12} className="text-nexus-text-muted" />
+                        ) : (
+                          <Globe size={12} className="text-nexus-orange" />
+                        )}
+                      </div>
+                      <p className="text-xs text-nexus-text-muted line-clamp-2 mt-1">{note.content}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-[10px] text-nexus-text-muted font-bold">{new Date(note.created_at).toLocaleDateString('pt-PT')}</span>
+                        {note.category && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-nexus-orange/10 text-nexus-orange font-bold">{note.category}</span>
+                        )}
+                        {note.related_member_name && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold">{note.related_member_name}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteNote(note.id)}
+                      className="p-2 text-nexus-text-muted hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -351,6 +458,102 @@ export default function PastorRoom() {
                 <button disabled={isSermonSuccess || isSermonLoading} onClick={handleSermonSubmit} className="flex-1 py-3 gold-gradient text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg shadow-nexus-orange/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                   {isSermonLoading ? <Loader2 size={14} className="animate-spin" /> : null}
                   Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isNoteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg glass-card p-8 space-y-6 overflow-hidden border-nexus-border focus:outline-none"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-nexus-text uppercase tracking-tight">Nova Nota</h3>
+                <button onClick={() => setIsNoteModalOpen(false)} className="p-1.5 rounded-lg hover:bg-nexus-card text-nexus-text-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="note-title" className="block text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest mb-1.5">Título *</label>
+                  <input
+                    id="note-title"
+                    type="text"
+                    value={noteFormData.title}
+                    onChange={(e) => setNoteFormData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Título da nota"
+                    className="w-full bg-nexus-card border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-nexus-yellow text-nexus-text"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="note-category" className="block text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest mb-1.5">Categoria</label>
+                    <input
+                      id="note-category"
+                      type="text"
+                      value={noteFormData.category}
+                      onChange={(e) => setNoteFormData(prev => ({ ...prev, category: e.target.value }))}
+                      placeholder="Ex: Aconselhamento"
+                      className="w-full bg-nexus-card border border-nexus-border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-nexus-yellow text-nexus-text"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="note-member" className="block text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest mb-1.5">Membro Relacionado</label>
+                    <input
+                      id="note-member"
+                      type="text"
+                      value={noteFormData.related_member_name}
+                      onChange={(e) => setNoteFormData(prev => ({ ...prev, related_member_name: e.target.value }))}
+                      placeholder="Nome do membro"
+                      className="w-full bg-nexus-card border border-nexus-border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-nexus-yellow text-nexus-text"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="note-content" className="block text-[10px] font-bold text-nexus-text-muted uppercase tracking-widest mb-1.5">Conteúdo *</label>
+                  <textarea
+                    id="note-content"
+                    value={noteFormData.content}
+                    onChange={(e) => setNoteFormData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Escreva a sua nota..."
+                    rows={5}
+                    className="w-full bg-nexus-card border border-nexus-border rounded-xl p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-nexus-yellow text-nexus-text resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setNoteFormData(p => ({ ...p, is_private: !p.is_private }))}
+                    className={`w-12 h-6 rounded-full transition-all ${noteFormData.is_private ? 'bg-emerald-500' : 'bg-nexus-border'}`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white shadow transition-all ${noteFormData.is_private ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                  <span className="text-xs font-bold text-nexus-text-muted">{noteFormData.is_private ? 'Privada' : 'Pública'}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3 relative">
+                {isNoteSuccess ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="absolute inset-0 z-10 flex items-center justify-center bg-emerald-500 rounded-xl text-white font-bold text-xs uppercase tracking-widest gap-2">
+                    <Check size={18} /> Nota Criada
+                  </motion.div>
+                ) : null}
+                <button disabled={isNoteSuccess} onClick={() => setIsNoteModalOpen(false)} className="flex-1 py-3 bg-nexus-card hover:bg-nexus-card/80 text-nexus-text-muted rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-nexus-border">Cancelar</button>
+                <button disabled={isNoteSuccess || isNoteLoading || !noteFormData.title.trim()} onClick={handleCreateNote} className="flex-1 py-3 gold-gradient text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 shadow-lg shadow-nexus-orange/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {isNoteLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Criar Nota
                 </button>
               </div>
             </motion.div>

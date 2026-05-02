@@ -8,10 +8,11 @@ interface UserProfile {
   id: string;
   full_name: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   avatar_url?: string;
   phone?: string;
   department_id?: string;
+  password_changed?: boolean;
 }
 
 interface AuthState {
@@ -19,14 +20,17 @@ interface AuthState {
   profile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  needsPasswordChange: boolean;
 
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, fullName: string, role: UserRole) => Promise<boolean>;
+  register: (email: string, password: string, fullName: string, roles: UserRole[]) => Promise<boolean>;
   fetchProfile: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<boolean>;
+  updatePassword: (newPassword: string) => Promise<boolean>;
   hasRole: (...roles: UserRole[]) => boolean;
   initialize: () => void;
+  checkPasswordChangeRequired: () => boolean;
 }
 
 export const useAuth = create<AuthState>()((set, get) => ({
@@ -34,6 +38,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
   profile: null,
   isAuthenticated: false,
   isLoading: false,
+  needsPasswordChange: false,
 
   login: async (email: string, password: string): Promise<boolean> => {
     set({ isLoading: true });
@@ -50,6 +55,10 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
       set({ user: data.user, isAuthenticated: true, isLoading: false });
       await get().fetchProfile();
+
+      const needsChange = get().checkPasswordChangeRequired();
+      set({ needsPasswordChange: needsChange });
+
       return true;
     } catch {
       set({ isLoading: false });
@@ -65,7 +74,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
     }
   },
 
-  register: async (email: string, password: string, fullName: string, role: UserRole): Promise<boolean> => {
+  register: async (email: string, password: string, fullName: string, roles: UserRole[]): Promise<boolean> => {
     set({ isLoading: true });
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -74,7 +83,7 @@ export const useAuth = create<AuthState>()((set, get) => ({
         options: {
           data: {
             full_name: fullName,
-            role,
+            roles,
           },
         },
       });
@@ -85,9 +94,16 @@ export const useAuth = create<AuthState>()((set, get) => ({
       }
 
       set({ user: data.user, isAuthenticated: true, isLoading: false });
-      // Wait briefly for trigger to create profile, then fetch it
       await new Promise(resolve => setTimeout(resolve, 500));
       await get().fetchProfile();
+
+      if (data.user) {
+        await supabase
+          .from('profiles')
+          .update({ password_changed: false })
+          .eq('id', data.user.id);
+      }
+
       return true;
     } catch {
       set({ isLoading: false });
@@ -109,7 +125,15 @@ export const useAuth = create<AuthState>()((set, get) => ({
           .single();
 
         if (data) {
-          set({ profile: data as UserProfile });
+          set({ profile: {
+            ...data,
+            roles: data.roles || ['MEMBER'],
+            password_changed: data.password_changed ?? false,
+          } as UserProfile });
+
+          const needsChange = data.password_changed === false;
+          set({ needsPasswordChange: needsChange });
+
           return;
         }
 
@@ -130,7 +154,45 @@ export const useAuth = create<AuthState>()((set, get) => ({
 
   hasRole: (...roles) => {
     const { profile } = get();
-    return profile ? roles.includes(profile.role) : false;
+    if (!profile) return false;
+    return roles.some(r => profile.roles.includes(r));
+  },
+
+  updatePassword: async (newPassword: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('[auth] updatePassword error:', error);
+        return false;
+      }
+
+      const { profile } = get();
+      if (profile) {
+        await supabase
+          .from('profiles')
+          .update({ password_changed: true })
+          .eq('id', profile.id);
+
+        set({ 
+          profile: { ...profile, password_changed: true },
+          needsPasswordChange: false 
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[auth] updatePassword caught:', err);
+      return false;
+    }
+  },
+
+  checkPasswordChangeRequired: () => {
+    const { profile } = get();
+    if (!profile) return false;
+    return profile.password_changed === false;
   },
 
   updateProfile: async (data: Partial<UserProfile>): Promise<boolean> => {
@@ -140,12 +202,23 @@ export const useAuth = create<AuthState>()((set, get) => ({
     try {
       const { error } = await supabase
         .from('profiles')
-        .update(data)
-        .eq('id', user.id);
+        .upsert({
+          id: user.id,
+          full_name: data.full_name || user.user_metadata?.full_name || 'User',
+          email: user.email || '',
+          roles: data.roles || ['MEMBER'],
+          phone: data.phone,
+          avatar_url: data.avatar_url,
+          department_id: data.department_id,
+        }, { onConflict: 'id' });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[auth] updateProfile error:', error);
+        throw error;
+      }
       return true;
-    } catch {
+    } catch (err) {
+      console.error('[auth] updateProfile caught:', err);
       return false;
     }
   },

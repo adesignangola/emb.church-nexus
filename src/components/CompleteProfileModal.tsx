@@ -3,6 +3,15 @@ import { useAuth } from '../stores/authStore';
 import { User, Phone, Mail, Briefcase } from 'lucide-react';
 import { motion } from 'motion/react';
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  PASTOR: 'Pastor',
+  SECRETARY: 'Secretária',
+  TREASURER: 'Tesoureiro',
+  DEPT_LEADER: 'Líder de Dept.',
+  MEMBER: 'Membro',
+};
+
 export default function CompleteProfileModal() {
   const { profile, user, fetchProfile } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name === 'New User' || !profile?.full_name ? '' : profile?.full_name || '');
@@ -15,8 +24,7 @@ export default function CompleteProfileModal() {
   const isIncomplete = 
     profile.full_name === 'New User' || 
     !profile.full_name || 
-    profile.full_name.trim() === '' ||
-    !profile.phone;
+    profile.full_name.trim() === '';
 
   const isNewUser = profile.full_name === 'New User' || !profile.full_name || profile.full_name.trim() === '';
 
@@ -46,7 +54,6 @@ export default function CompleteProfileModal() {
 
       if (success) {
         await fetchProfile();
-        window.location.reload();
       } else {
         setError('Erro ao salvar perfil. Tente novamente.');
       }
@@ -149,7 +156,7 @@ export default function CompleteProfileModal() {
                 <input
                   id="role"
                   type="text"
-                  value={profile.role}
+                  value={profile.roles.map(r => ROLE_LABELS[r] || r).join(' & ')}
                   disabled
                   className="w-full bg-nexus-card/30 border border-nexus-border rounded-xl pl-10 pr-4 py-3 text-sm text-nexus-text-muted cursor-not-allowed"
                 />

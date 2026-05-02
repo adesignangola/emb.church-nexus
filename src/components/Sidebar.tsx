@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../stores/authStore';
 
 interface SidebarProps {
   activeTab: string;
@@ -54,25 +55,30 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout, collapsed, 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const { profile, hasRole } = useAuth();
+
   const menuItems = [
-    { id: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: '/secretary', icon: ClipboardList, label: 'Secretaria' },
-    { id: '/members', icon: Users, label: 'Base de Membros' },
-    { id: '/kids', icon: Baby, label: 'Crianças' },
-    { id: '/birthdays', icon: Cake, label: 'Aniversariantes' },
-    { id: '/users', icon: Key, label: 'Utilizadores' },
-    { id: '/financial', icon: Banknote, label: 'Financeiro' },
-    { id: '/worship', icon: Church, label: 'Cultos' },
-    { id: '/departments', icon: Briefcase, label: 'Departamentos' },
-    { id: '/schedules', icon: Clock, label: 'Escalas' },
-    { id: '/agenda', icon: Calendar, label: 'Agenda' },
-    { id: '/schools', icon: GraduationCap, label: 'Escolas' },
-    { id: '/leadership', icon: ShieldCheck, label: 'Liderança' },
-    { id: '/communication', icon: MessageSquare, label: 'Comunicação' },
-    { id: '/pastor', icon: UserCircle, label: 'Área do Pastor' },
-    { id: '/audit', icon: History, label: 'Auditoria' },
-    { id: '/settings', icon: Settings, label: 'Definições' },
-  ];
+    { id: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['ADMIN', 'PASTOR', 'SECRETARY', 'TREASURER', 'DEPT_LEADER', 'MEMBER'] },
+    { id: '/secretary', icon: ClipboardList, label: 'Secretaria', roles: ['SECRETARY', 'ADMIN'] },
+    { id: '/members', icon: Users, label: 'Base de Membros', roles: ['ADMIN', 'SECRETARY', 'PASTOR', 'DEPT_LEADER'] },
+    { id: '/kids', icon: Baby, label: 'Crianças', roles: ['ADMIN', 'SECRETARY', 'DEPT_LEADER'] },
+    { id: '/birthdays', icon: Cake, label: 'Aniversariantes', roles: ['ADMIN', 'PASTOR', 'SECRETARY', 'TREASURER', 'DEPT_LEADER', 'MEMBER'] },
+    { id: '/users', icon: Key, label: 'Utilizadores', roles: ['ADMIN'] },
+    { id: '/financial', icon: Banknote, label: 'Financeiro', roles: ['ADMIN', 'TREASURER', 'PASTOR'] },
+    { id: '/worship', icon: Church, label: 'Cultos', roles: ['ADMIN', 'SECRETARY', 'PASTOR'] },
+    { id: '/departments', icon: Briefcase, label: 'Departamentos', roles: ['ADMIN', 'PASTOR', 'DEPT_LEADER'] },
+    { id: '/schedules', icon: Clock, label: 'Escalas', roles: ['ADMIN', 'SECRETARY'] },
+    { id: '/agenda', icon: Calendar, label: 'Agenda', roles: ['ADMIN', 'SECRETARY', 'PASTOR'] },
+    { id: '/schools', icon: GraduationCap, label: 'Escolas', roles: ['ADMIN', 'SECRETARY', 'DEPT_LEADER'] },
+    { id: '/leadership', icon: ShieldCheck, label: 'Liderança', roles: ['ADMIN', 'PASTOR'] },
+    { id: '/communication', icon: MessageSquare, label: 'Comunicação', roles: ['ADMIN', 'SECRETARY'] },
+    { id: '/pastor', icon: UserCircle, label: 'Área do Pastor', roles: ['ADMIN', 'PASTOR'] },
+    { id: '/audit', icon: History, label: 'Auditoria', roles: ['ADMIN'] },
+    { id: '/settings', icon: Settings, label: 'Definições', roles: ['ADMIN', 'PASTOR', 'SECRETARY'] },
+  ].filter(item => {
+    if (!profile) return false;
+    return item.roles.some(role => profile.roles.includes(role as any));
+  });
 
   return (
     <>

@@ -759,9 +759,9 @@ interface KidsGroupsState {
   loading: boolean;
   error: string | null;
   fetchGroups: () => Promise<void>;
-  addGroup: (group: Omit<KidsGroup, 'id' | 'created_at'>) => Promise<void>;
-  updateGroup: (id: string, updates: Partial<KidsGroup>) => Promise<void>;
-  deleteGroup: (id: string) => Promise<void>;
+  addGroup: (group: Omit<KidsGroup, 'id' | 'created_at'>) => Promise<boolean>;
+  updateGroup: (id: string, updates: Partial<KidsGroup>) => Promise<boolean>;
+  deleteGroup: (id: string) => Promise<boolean>;
 }
 
 export const useKidsGroups = create<KidsGroupsState>()((set) => ({
@@ -788,8 +788,10 @@ export const useKidsGroups = create<KidsGroupsState>()((set) => ({
       const { data, error } = await supabase.from('kids_groups').insert(group).select().single();
       if (error) throw error;
       set((state) => ({ groups: [...state.groups, data] }));
+      return true;
     } catch (err) {
       set({ error: (err as Error).message });
+      return false;
     }
   },
 
@@ -798,8 +800,10 @@ export const useKidsGroups = create<KidsGroupsState>()((set) => ({
       const { data, error } = await supabase.from('kids_groups').update(updates).eq('id', id).select().single();
       if (error) throw error;
       set((state) => ({ groups: state.groups.map((g) => (g.id === id ? data : g)) }));
+      return true;
     } catch (err) {
       set({ error: (err as Error).message });
+      return false;
     }
   },
 
@@ -808,8 +812,10 @@ export const useKidsGroups = create<KidsGroupsState>()((set) => ({
       const { error } = await supabase.from('kids_groups').delete().eq('id', id);
       if (error) throw error;
       set((state) => ({ groups: state.groups.filter((g) => g.id !== id) }));
+      return true;
     } catch (err) {
       set({ error: (err as Error).message });
+      return false;
     }
   },
 }));
@@ -961,6 +967,9 @@ interface LeadershipState {
   loading: boolean;
   error: string | null;
   fetchPositions: () => Promise<void>;
+  addPosition: (pos: Omit<LeadershipPosition, 'id' | 'created_at'>) => Promise<boolean>;
+  updatePosition: (id: string, updates: Partial<LeadershipPosition>) => Promise<boolean>;
+  deletePosition: (id: string) => Promise<boolean>;
 }
 
 export const useLeadership = create<LeadershipState>()((set) => ({
@@ -981,16 +990,52 @@ export const useLeadership = create<LeadershipState>()((set) => ({
       set({ error: (err as Error).message, loading: false });
     }
   },
+
+  addPosition: async (pos) => {
+    try {
+      const { data, error } = await supabase.from('leadership_positions').insert(pos).select().single();
+      if (error) throw error;
+      set((state) => ({ positions: [...state.positions, data] }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+  },
+
+  updatePosition: async (id, updates) => {
+    try {
+      const { data, error } = await supabase.from('leadership_positions').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      set((state) => ({ positions: state.positions.map((p) => (p.id === id ? data : p)) }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+  },
+
+  deletePosition: async (id) => {
+    try {
+      const { error } = await supabase.from('leadership_positions').delete().eq('id', id);
+      if (error) throw error;
+      set((state) => ({ positions: state.positions.filter((p) => p.id !== id) }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+  },
 }));
 
 // =====================================================
 // PROFILES (Users)
 // =====================================================
-interface Profile {
+export interface Profile {
   id: string;
   full_name: string;
   email: string;
-  role: 'ADMIN' | 'PASTOR' | 'SECRETARY' | 'TREASURER' | 'DEPT_LEADER' | 'MEMBER';
+  roles: ('ADMIN' | 'PASTOR' | 'SECRETARY' | 'TREASURER' | 'DEPT_LEADER' | 'MEMBER')[];
   avatar_url: string | null;
   phone: string | null;
   department_id: string | null;
@@ -1047,6 +1092,88 @@ export const useProfiles = create<ProfilesState>()((set) => ({
       set((state) => ({ profiles: state.profiles.filter((p) => p.id !== id) }));
     } catch (err) {
       set({ error: (err as Error).message });
+    }
+  },
+}));
+
+// =====================================================
+// PASTORAL NOTES
+// =====================================================
+interface PastoralNote {
+  id: string;
+  title: string;
+  content: string;
+  category: string | null;
+  related_member_id: string | null;
+  related_member_name: string | null;
+  is_private: boolean;
+  pastor_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PastoralNotesState {
+  notes: PastoralNote[];
+  loading: boolean;
+  error: string | null;
+  fetchNotes: () => Promise<void>;
+  addNote: (note: Omit<PastoralNote, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
+  updateNote: (id: string, updates: Partial<PastoralNote>) => Promise<boolean>;
+  deleteNote: (id: string) => Promise<boolean>;
+}
+
+export const usePastoralNotes = create<PastoralNotesState>()((set) => ({
+  notes: [],
+  loading: false,
+  error: null,
+
+  fetchNotes: async () => {
+    set({ loading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('pastoral_notes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      set({ notes: data || [], loading: false });
+    } catch (err) {
+      set({ error: (err as Error).message, loading: false });
+    }
+  },
+
+  addNote: async (note) => {
+    try {
+      const { data, error } = await supabase.from('pastoral_notes').insert(note).select().single();
+      if (error) throw error;
+      set((state) => ({ notes: [data, ...state.notes] }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+  },
+
+  updateNote: async (id, updates) => {
+    try {
+      const { data, error } = await supabase.from('pastoral_notes').update(updates).eq('id', id).select().single();
+      if (error) throw error;
+      set((state) => ({ notes: state.notes.map((n) => (n.id === id ? data : n)) }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
+    }
+  },
+
+  deleteNote: async (id) => {
+    try {
+      const { error } = await supabase.from('pastoral_notes').delete().eq('id', id);
+      if (error) throw error;
+      set((state) => ({ notes: state.notes.filter((n) => n.id !== id) }));
+      return true;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      return false;
     }
   },
 }));

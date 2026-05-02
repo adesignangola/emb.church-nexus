@@ -55,7 +55,7 @@ export default function TopBar({ title }: TopBarProps) {
   const navigate = useNavigate();
 
   const displayName = profile?.full_name || 'Utilizador';
-  const displayRole = profile?.role ? ROLE_LABELS[profile.role] || profile.role : '';
+  const displayRole = profile?.roles ? profile.roles.map(r => ROLE_LABELS[r] || r).join(' & ') : '';
   const displayEmail = profile?.email || '';
 
   const searchResults = useMemo(() => {
@@ -76,14 +76,14 @@ export default function TopBar({ title }: TopBarProps) {
     });
 
     const pages = [
-      { label: 'Dashboard', icon: Users, path: '/dashboard', type: 'Página' },
-      { label: 'Membros', icon: Users, path: '/members', type: 'Página' },
-      { label: 'Agenda', icon: Calendar, path: '/agenda', type: 'Página' },
-      { label: 'Financeiro', icon: DollarSign, path: '/financial', type: 'Página' },
-      { label: 'Comunicação', icon: MessageSquare, path: '/communication', type: 'Página' },
-      { label: 'Cultos', icon: Music, path: '/worship', type: 'Página' },
-      { label: 'Departamentos', icon: MapPin, path: '/departments', type: 'Página' },
-      { label: 'Escolas', icon: MapPin, path: '/schools', type: 'Página' },
+      { label: 'Dashboard', icon: Users, path: '/dashboard', type: 'Página', sub: 'Navegação' },
+      { label: 'Membros', icon: Users, path: '/members', type: 'Página', sub: 'Navegação' },
+      { label: 'Agenda', icon: Calendar, path: '/agenda', type: 'Página', sub: 'Navegação' },
+      { label: 'Financeiro', icon: DollarSign, path: '/financial', type: 'Página', sub: 'Navegação' },
+      { label: 'Comunicação', icon: MessageSquare, path: '/communication', type: 'Página', sub: 'Navegação' },
+      { label: 'Cultos', icon: Music, path: '/worship', type: 'Página', sub: 'Navegação' },
+      { label: 'Departamentos', icon: MapPin, path: '/departments', type: 'Página', sub: 'Navegação' },
+      { label: 'Escolas', icon: MapPin, path: '/schools', type: 'Página', sub: 'Navegação' },
     ];
     pages.filter(p => p.label.toLowerCase().includes(q)).forEach(p => {
       results.push(p);
@@ -319,7 +319,7 @@ export default function TopBar({ title }: TopBarProps) {
                       <span>Definições do Sistema</span>
                     </button>
 
-                    {profile?.role === 'ADMIN' && (
+                    {profile?.roles.includes('ADMIN') && (
                       <button
                         onClick={() => handleNavigate('/audit')}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:text-nexus-yellow hover:bg-nexus-yellow/10 transition-all"

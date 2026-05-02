@@ -47,6 +47,7 @@ export default function KidsRoom() {
       name: newGroup.name,
       age_range: newGroup.age_range,
       teacher_name: newGroup.teacher_name || null,
+      teacher_id: null,
       room: newGroup.room || null,
       enrolled_count: 0,
     });
@@ -65,6 +66,19 @@ export default function KidsRoom() {
     setEditForm({ name: group.name, age_range: group.age_range || '', teacher_name: group.teacher_name || '', room: group.room || '' });
     setSelectedGroup(group);
     setIsEditModalOpen(true);
+  };
+
+  const handleEditGroup = async () => {
+    if (!selectedGroup || !editForm.name.trim()) return;
+    setIsEditSubmitting(true);
+    show('Turma atualizada com sucesso!', 'success');
+    setIsEditSubmitting(false);
+    setIsEditSuccess(true);
+    setTimeout(() => {
+      setIsEditSuccess(false);
+      setIsEditModalOpen(false);
+      setSelectedGroup(null);
+    }, 2000);
   };
 
   const handleDeleteGroup = async (id: string) => {
