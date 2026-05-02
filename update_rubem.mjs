@@ -7,7 +7,7 @@ const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABAS
 const { data, error } = await supabase
   .from('profiles')
   .update({ roles: ['ADMIN', 'PASTOR'] })
-  .eq('email', 'rubenbitumba@embchurh.com');
+  .eq('email', 'rubenbitumba@embchurch.com');
 
 if (error) {
   console.error('Erro:', error.message);
